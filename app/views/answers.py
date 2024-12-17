@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +19,7 @@ class SubmitAnswerAPIView(APIView):
             raise FormNotFoundException()
         return form
 
+    @extend_schema(request=SubmitAnswerSerializer)
     def post(self, request, *args, **kwargs):
         serializer = SubmitAnswerSerializer(
             data=request.data, context={"form": self.get_form()}
