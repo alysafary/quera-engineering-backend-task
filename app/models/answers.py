@@ -1,4 +1,3 @@
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.db import models
@@ -19,9 +18,11 @@ class Answer(models.Model):
 
     def _validate_text_answer(self, config):
         if config.answer_max_length and len(self.value) > config.answer_max_length:
-            raise ValidationError(f"Answer exceeds max length of {config.answer_max_length}")
+            raise ValidationError(
+                f"Answer exceeds max length of {config.answer_max_length}"
+            )
 
-        if config.text_format == 'email':
+        if config.text_format == "email":
             validator = EmailValidator(
                 message="The provided answer is not a valid email address."
             )
@@ -46,5 +47,3 @@ class Answer(models.Model):
 
         if config.max_value is not None and num_value > config.max_value:
             raise ValidationError(f"Value must not exceed {config.max_value}")
-
-

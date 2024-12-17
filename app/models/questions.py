@@ -67,15 +67,12 @@ class QuestionConfiguration(models.Model):
             raise ValidationError("Minimum value cannot exceed maximum value.")
 
 
-
 class Question(models.Model):
-    form = models.ForeignKey(Form, related_name='questions', on_delete=models.CASCADE)
+    form = models.ForeignKey(Form, related_name="questions", on_delete=models.CASCADE)
     text = models.CharField(max_length=300)
     is_required = models.BooleanField(default=False)
     configuration = models.OneToOneField(
-        QuestionConfiguration,
-        on_delete=models.CASCADE,
-        related_name='question'
+        QuestionConfiguration, on_delete=models.CASCADE, related_name="question"
     )
 
     def __str__(self):

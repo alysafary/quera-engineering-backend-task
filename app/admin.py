@@ -1,12 +1,13 @@
 from django.contrib import admin
-from django.forms import ModelForm, ValidationError
-from .models import Form, Question, QuestionConfiguration, QuestionType
+from django.forms import ModelForm
+
+from .models import Form, Question, QuestionConfiguration
 
 
 class QuestionConfigurationInlineForm(ModelForm):
     class Meta:
         model = QuestionConfiguration
-        fields = '__all__'
+        fields = "__all__"
 
 
 class QuestionConfigurationInline(admin.StackedInline):
@@ -28,7 +29,7 @@ class QuestionInline(admin.StackedInline):
             def save_new(self, form, commit=True):
                 question = super().save_new(form, commit=False)
 
-                if not hasattr(question, 'configuration'):
+                if not hasattr(question, "configuration"):
                     config = QuestionConfiguration.objects.create()
                     question.configuration = config
 
@@ -41,13 +42,13 @@ class QuestionInline(admin.StackedInline):
 
 class FormAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
-    list_display = ('title', 'created_date', 'question_count')
-    search_fields = ('title',)
+    list_display = ("title", "created_date", "question_count")
+    search_fields = ("title",)
 
     def question_count(self, obj):
         return obj.questions.count()
 
-    question_count.short_description = 'Number of Questions'
+    question_count.short_description = "Number of Questions"
 
 
 admin.site.register(Form, FormAdmin)
