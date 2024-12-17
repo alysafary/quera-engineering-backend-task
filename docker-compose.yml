@@ -10,12 +10,12 @@ services:
     volumes:
       - .:/app
     environment:
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
       POETRY_CACHE_DIR: /app/.quera/cache/poetry
     env_file:
       - .env
     ports:
-      - 127.0.0.1:8080:8080
+      - 8080:8080
     logging:
       driver: local
     depends_on:

@@ -48,5 +48,5 @@ RUN apt-get update && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY . /app
 WORKDIR /app
 
-CMD ["python", "manage.py", "runserver", "localhost:8080"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8080"]
 
