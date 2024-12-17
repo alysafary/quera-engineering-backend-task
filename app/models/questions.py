@@ -12,7 +12,7 @@ class Form(models.Model):
 
 class BaseQuestionType(models.IntegerChoices):
     TEXT = 1, "Text"
-    NUMBER = 4, "Number"
+    NUMBER = 2, "Number"
 
 
 class BaseQuestion(models.Model):
@@ -42,20 +42,20 @@ class TextQuestion(BaseQuestion):
     form = models.ForeignKey(
         Form, related_name="text_questions", on_delete=models.CASCADE
     )
-    answer_max_length = models.PositiveIntegerField()
+    answer_max_length = models.PositiveIntegerField(null=True, blank=True)
 
     def map_text_type_to_max_length(self):
         """Map text type to corresponding maximum length."""
         text_type_map = {
-            self.TextQuestionType.SHORT_TEXT: 200,
-            self.TextQuestionType.LONG_TEXT: 5000,
-            self.TextQuestionType.EMAIL: 320,
+            TextQuestionType.SHORT_TEXT: 200,
+            TextQuestionType.LONG_TEXT: 5000,
+            TextQuestionType.EMAIL: 320,
         }
         return text_type_map.get(self.text_type, 200)
 
     def clean(self):
         """Validate answer_max_length based on text type."""
-        if self.question_type != self.BaseQuestionType.TEXT:
+        if self.question_type != BaseQuestionType.TEXT:
             raise ValidationError("Invalid question type for TextQuestion.")
 
         mapped_max_length = self.map_text_type_to_max_length()
@@ -93,7 +93,7 @@ class NumericQuestion(BaseQuestion):
 
     def clean(self):
         """Custom validation for min_value and max_value."""
-        if self.question_type != self.BaseQuestionType.NUMBER:
+        if self.question_type != BaseQuestionType.NUMBER:
             raise ValidationError("Invalid question type for NumericQuestion.")
         if self.min_value is not None and self.max_value is not None:
             if self.min_value > self.max_value:
