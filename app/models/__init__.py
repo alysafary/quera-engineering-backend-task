@@ -1,9 +1,7 @@
-from .answers import UserAnswer, TextAnswer, NumericAnswer
+from .answers import Answer
 from .questions import (
     Form,
-    BaseQuestion,
-    TextQuestion,
-    NumericQuestion,
-    TextQuestionType,
-    BaseQuestionType,
+QuestionType,
+Question,
+QuestionConfiguration
 )

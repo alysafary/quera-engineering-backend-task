@@ -1,70 +1,50 @@
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.db import models
 
-from .questions import Form, TextQuestion, NumericQuestion
+from .questions import Question, QuestionType
 
 
-class UserAnswer(models.Model):
-    form = models.ForeignKey(Form, related_name="answers", on_delete=models.CASCADE)
-    submitted_date = models.DateTimeField(auto_now_add=True)
-
-
-class TextAnswer(models.Model):
-    user_answer = models.ForeignKey(
-        UserAnswer, related_name="text_answers", on_delete=models.CASCADE
-    )
-    question = models.ForeignKey(TextQuestion, on_delete=models.CASCADE)
-    answer = models.TextField()
+class Answer(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    value = models.TextField()
 
     def clean(self):
-        """Validate the text answer length based on the question's constraints."""
-        if len(self.answer) > self.question.answer_max_length:
-            raise ValidationError(
-                f"Answer exceeds the maximum allowed length of {self.question.answer_max_length} characters."
-            )
-        if self.question.text_type == TextQuestion.TextQuestionType.EMAIL:
+        config = self.question.configuration
+        if config.question_type == QuestionType.TEXT:
+            self._validate_text_answer(config=config)
+        else:
+            self._validate_number_answer(config=config)
+
+    def _validate_text_answer(self, config):
+        if config.answer_max_length and len(self.value) > config.answer_max_length:
+            raise ValidationError(f"Answer exceeds max length of {config.answer_max_length}")
+
+        if config.text_format == 'email':
             validator = EmailValidator(
                 message="The provided answer is not a valid email address."
             )
             try:
-                validator(self.answer)
+                validator(self.value)
             except ValidationError as e:
                 raise ValidationError(
                     {"answer": f"Invalid email: {', '.join(e.messages)}"}
                 )
-        super().clean()
 
-    def __str__(self):
-        return f"TextAnswer to '{self.question.text}': {self.answer}"
+    def _validate_number_answer(self, config):
+        try:
+            num_value = float(self.value)
+        except ValueError:
+            raise ValidationError("Invalid number format")
+
+        if not config.is_decimal_allowed and not num_value.is_integer():
+            raise ValidationError("Decimal numbers are not allowed")
+
+        if config.min_value is not None and num_value < config.min_value:
+            raise ValidationError(f"Value must be at least {config.min_value}")
+
+        if config.max_value is not None and num_value > config.max_value:
+            raise ValidationError(f"Value must not exceed {config.max_value}")
 
 
-class NumericAnswer(models.Model):
-    user_answer = models.ForeignKey(
-        UserAnswer, related_name="numeric_answers", on_delete=models.CASCADE
-    )
-    question = models.ForeignKey(NumericQuestion, on_delete=models.CASCADE)
-    answer = models.FloatField()
-
-    def clean(self):
-        """Validate the numeric answer based on the question's constraints."""
-        if not self.question.is_float_allowed and not float(self.answer).is_integer():
-            raise ValidationError(f"Answer must be an integer for this question.")
-        if (
-            self.question.min_value is not None
-            and self.answer < self.question.min_value
-        ):
-            raise ValidationError(
-                f"Answer cannot be less than the minimum value of {self.question.min_value}."
-            )
-        if (
-            self.question.max_value is not None
-            and self.answer > self.question.max_value
-        ):
-            raise ValidationError(
-                f"Answer cannot exceed the maximum value of {self.question.max_value}."
-            )
-        super().clean()
-
-    def __str__(self):
-        return f"NumericAnswer to '{self.question.text}': {self.answer}"

@@ -10,107 +10,73 @@ class Form(models.Model):
         return self.title
 
 
-class BaseQuestionType(models.IntegerChoices):
+class QuestionType(models.IntegerChoices):
     TEXT = 1, "Text"
     NUMBER = 2, "Number"
 
 
-class BaseQuestion(models.Model):
-    form = models.ForeignKey(
-        Form, related_name="questions", on_delete=models.CASCADE
-    )
-    text = models.TextField()
-    is_required = models.BooleanField(default=False)
+class QuestionConfiguration(models.Model):
     question_type = models.IntegerField(
-        choices=BaseQuestionType.choices, default=BaseQuestionType.TEXT
+        choices=QuestionType.choices, default=QuestionType.TEXT
     )
 
-    class Meta:
-        abstract = True
-
-
-class TextQuestionType(models.IntegerChoices):
-    SHORT_TEXT = 1, "Short Text"
-    LONG_TEXT = 2, "Long Text"
-    EMAIL = 3, "Email"
-
-
-class TextQuestion(BaseQuestion):
-    text_type = models.IntegerField(
-        choices=TextQuestionType.choices, default=TextQuestionType.SHORT_TEXT
+    # Text-specific configurations
+    answer_max_length = models.PositiveIntegerField(default=200)
+    text_format = models.CharField(
+        max_length=50,
+        default="short",
+        choices=[
+            ("short", "Short Text"),
+            ("long", "Long Text"),
+            ("email", "Email"),
+        ],
     )
-    form = models.ForeignKey(
-        Form, related_name="text_questions", on_delete=models.CASCADE
-    )
-    answer_max_length = models.PositiveIntegerField(null=True, blank=True)
 
-    def map_text_type_to_max_length(self):
-        """Map text type to corresponding maximum length."""
-        text_type_map = {
-            TextQuestionType.SHORT_TEXT: 200,
-            TextQuestionType.LONG_TEXT: 5000,
-            TextQuestionType.EMAIL: 320,
+    # Number-specific configurations
+    min_value = models.FloatField(null=True, blank=True)
+    max_value = models.FloatField(null=True, blank=True)
+    is_decimal_allowed = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Config | Type:{self.get_question_type_display()} | ID: {self.pk}"
+
+    def clean(self):
+        if self.question_type == QuestionType.TEXT:
+            self._validate_text_config()
+        else:
+            self._validate_number_config()
+
+    def _validate_text_config(self):
+        map_text_type_to_length = {
+            "short": 200,
+            "long": 5000,
+            "email": 320,
         }
-        return text_type_map.get(self.text_type, 200)
-
-    def clean(self):
-        """Validate answer_max_length based on text type."""
-        if self.question_type != BaseQuestionType.TEXT:
-            raise ValidationError("Invalid question type for TextQuestion.")
-
-        mapped_max_length = self.map_text_type_to_max_length()
-        if self.answer_max_length and self.answer_max_length > mapped_max_length:
+        expected_length = map_text_type_to_length[self.text_format]
+        if self.answer_max_length and self.answer_max_length > expected_length:
             raise ValidationError(
-                f"Answer max length cannot exceed {mapped_max_length} characters for {self.get_text_type_display()} type."
+                f"Answer max length cannot exceed {expected_length} characters for {self.text_format} type."
             )
-        super().clean()
 
-    def save(self, *args, **kwargs):
-        """Automatically set answer_max_length based on text_type before saving."""
-        if not self.answer_max_length:
-            self.answer_max_length = self.map_text_type_to_max_length()
-        super().save(*args, **kwargs)
+    def _validate_number_config(self):
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
+            raise ValidationError("Minimum value cannot exceed maximum value.")
 
 
-class NumericQuestion(BaseQuestion):
-    form = models.ForeignKey(
-        Form, related_name="numeric_questions", on_delete=models.CASCADE
-    )
-    is_float_allowed = models.BooleanField(
-        default=True,
-        help_text="Check if floating-point numbers are allowed.",
-    )
-    min_value = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="Optional minimum numeric value.",
-    )
-    max_value = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="Optional maximum numeric value.",
+
+class Question(models.Model):
+    form = models.ForeignKey(Form, related_name='questions', on_delete=models.CASCADE)
+    text = models.CharField(max_length=300)
+    is_required = models.BooleanField(default=False)
+    configuration = models.OneToOneField(
+        QuestionConfiguration,
+        on_delete=models.CASCADE,
+        related_name='question'
     )
 
-    def clean(self):
-        """Custom validation for min_value and max_value."""
-        if self.question_type != BaseQuestionType.NUMBER:
-            raise ValidationError("Invalid question type for NumericQuestion.")
-        if self.min_value is not None and self.max_value is not None:
-            if self.min_value > self.max_value:
-                raise ValidationError(
-                    {
-                        "min_value": "Minimum value cannot be greater than the maximum value."
-                    }
-                )
-
-        if not self.is_float_allowed:
-            if self.min_value is not None and not float(self.min_value).is_integer():
-                raise ValidationError(
-                    {"min_value": "Minimum value must be an integer."}
-                )
-            if self.max_value is not None and not float(self.max_value).is_integer():
-                raise ValidationError(
-                    {"max_value": "Maximum value must be an integer."}
-                )
-
-        super().clean()
+    def __str__(self):
+        return self.text

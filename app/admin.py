@@ -1,53 +1,55 @@
 from django.contrib import admin
-from app.models import Form, TextQuestion, NumericQuestion, BaseQuestionType
+from django.forms import ModelForm, ValidationError
+from .models import Form, Question, QuestionConfiguration, QuestionType
 
 
-class TextQuestionInline(admin.TabularInline):
-    model = TextQuestion
+class QuestionConfigurationInlineForm(ModelForm):
+    class Meta:
+        model = QuestionConfiguration
+        fields = '__all__'
+
+
+class QuestionConfigurationInline(admin.StackedInline):
+    model = QuestionConfiguration
+    form = QuestionConfigurationInlineForm
     extra = 0
+    can_delete = False
 
 
-class NumericQuestionInline(admin.TabularInline):
-    model = NumericQuestion
-    extra = 0
+class QuestionInline(admin.StackedInline):
+    model = Question
+    extra = 1
+    inlines = [QuestionConfigurationInline]
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+
+        class CustomFormSet(formset):
+            def save_new(self, form, commit=True):
+                question = super().save_new(form, commit=False)
+
+                if not hasattr(question, 'configuration'):
+                    config = QuestionConfiguration.objects.create()
+                    question.configuration = config
+
+                if commit:
+                    question.save()
+                return question
+
+        return CustomFormSet
 
 
-@admin.register(Form)
 class FormAdmin(admin.ModelAdmin):
-    inlines = [TextQuestionInline, NumericQuestionInline]
-    list_display = ("title", "created_date")
-    search_fields = ("title",)
+    inlines = [QuestionInline]
+    list_display = ('title', 'created_date', 'question_count')
+    search_fields = ('title',)
+
+    def question_count(self, obj):
+        return obj.questions.count()
+
+    question_count.short_description = 'Number of Questions'
 
 
-@admin.register(TextQuestion)
-class TextQuestionAdmin(admin.ModelAdmin):
-    list_display = ("text", "question_type", "text_type", "answer_max_length")
-    list_filter = ("text_type", "question_type")
-    search_fields = ("text",)
-    exclude = ("question_type",)
-
-    def save_model(self, request, obj, form, change):
-        """Ensure `question_type` is always set to TEXT for TextQuestion."""
-        obj.question_type = BaseQuestionType.TEXT
-        super().save_model(request, obj, form, change)
-
-
-@admin.register(NumericQuestion)
-class NumericQuestionAdmin(admin.ModelAdmin):
-    list_display = (
-        "text",
-        "question_type",
-        "min_value",
-        "max_value",
-        "is_float_allowed"
-    )
-    list_filter = ("question_type", "is_float_allowed")
-    search_fields = ("text",)
-    exclude = ("question_type",)
-
-
-    def save_model(self, request, obj, form, change):
-        """Ensure `question_type` is always set to NUMBER for NumericQuestion."""
-        obj.question_type = BaseQuestionType.NUMBER
-        super().save_model(request, obj, form, change)
-
+admin.site.register(Form, FormAdmin)
+admin.site.register(Question)
+admin.site.register(QuestionConfiguration)
