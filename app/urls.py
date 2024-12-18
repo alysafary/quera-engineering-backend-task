@@ -6,6 +6,6 @@ urlpatterns = [
     path(
         "forms/<int:form_id>/answers/submit/",
         SubmitAnswerAPIView.as_view(),
-        name="answers-submit",
+        name="submit-answers",
     ),
 ]
